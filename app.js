@@ -30,6 +30,7 @@ initialiseDbAndServer();
 
 const authenticateToken = async (request, response, next) => {
   let jwtToken;
+
   const authHeader = request.headers["authorization"];
   if (authHeader === undefined) {
     response.status(401);
@@ -41,7 +42,17 @@ const authenticateToken = async (request, response, next) => {
         response.status(401);
         response.send("Invalid JWT Token");
       } else {
-        request.username = payload.username;
+        const username = payload.username;
+        const getUserDetailsQuery = `
+            SELECT
+                *
+            FROM
+                user
+            WHERE username = "${username}";
+        `;
+        const getUserDetails = await db.get(getUserDetailsQuery);
+        const user_id = getUserDetails.user_id;
+        request.user_id = user_id;
         next();
       }
     });
@@ -143,16 +154,7 @@ app.post("/login/", async (request, response) => {
 
 //API3: To return the latest 4 tweets of people whom the user follows
 app.get("/user/tweets/feed/", authenticateToken, async (request, response) => {
-  const { username } = request;
-  const getUserDetailsQuery = `
-    SELECT
-        *
-    FROM
-        user
-    WHERE username = "${username}";
-  `;
-  const getUserDetails = await db.get(getUserDetailsQuery);
-  const user_id = getUserDetails.user_id;
+  const { user_id } = request;
   const getTweetsOfPeopleFollowingQuery = `
     SELECT
         user.username,
@@ -183,17 +185,7 @@ app.get("/user/tweets/feed/", authenticateToken, async (request, response) => {
 
 //API4: To return the list of all names of people whom the user follows
 app.get("/user/following/", authenticateToken, async (request, response) => {
-  const { username } = request;
-  const getUserDetailsQuery = `
-            SELECT
-                *
-            FROM
-                user
-            WHERE username = "${username}";
-        `;
-  const getUserDetails = await db.get(getUserDetailsQuery);
-  const user_id = getUserDetails.user_id;
-
+  const { user_id } = request;
   const getFollowingPeopleListQuery = `
         SELECT
             user.name
@@ -216,16 +208,7 @@ app.get("/user/following/", authenticateToken, async (request, response) => {
 
 //API5: To return the list of all names of people who follows the user
 app.get("/user/followers/", authenticateToken, async (request, response) => {
-  const { username } = request;
-  const getUserDetailsQuery = `
-            SELECT
-                *
-            FROM
-                user
-            WHERE username = "${username}";
-        `;
-  const getUserDetails = await db.get(getUserDetailsQuery);
-  const user_id = getUserDetails.user_id;
+  const { user_id } = request;
   const getFollowingPeopleListQuery = `
         SELECT
             user.name
@@ -249,16 +232,7 @@ app.get("/user/followers/", authenticateToken, async (request, response) => {
 //API6: To return the tweet, likes count, replies count and date-time of a tweet of the user he is following
 app.get("/tweets/:tweetId/", authenticateToken, async (request, response) => {
   const { tweetId } = request.params;
-  const { username } = request;
-  const getUserDetailsQuery = `
-            SELECT
-                *
-            FROM
-                user
-            WHERE username = "${username}";
-        `;
-  const getUserDetails = await db.get(getUserDetailsQuery);
-  const user_id = getUserDetails.user_id;
+  const { user_id } = request;
   const getTweetDetailsQuery = `
     SELECT
         tweet.tweet,
@@ -301,16 +275,7 @@ app.get(
   authenticateToken,
   async (request, response) => {
     const { tweetId } = request.params;
-    const { username } = request;
-    const getUserDetailsQuery = `
-            SELECT
-                *
-            FROM
-                user
-            WHERE username = "${username}";
-        `;
-    const getUserDetails = await db.get(getUserDetailsQuery);
-    const user_id = getUserDetails.user_id;
+    const { user_id } = request;
     const getUsernameDetailsQuery = `
     SELECT
         user.username
@@ -350,16 +315,7 @@ app.get(
   authenticateToken,
   async (request, response) => {
     const { tweetId } = request.params;
-    const { username } = request;
-    const getUserDetailsQuery = `
-            SELECT
-                *
-            FROM
-                user
-            WHERE username = "${username}";
-        `;
-    const getUserDetails = await db.get(getUserDetailsQuery);
-    const user_id = getUserDetails.user_id;
+    const { user_id } = request;
     const getReplyDetailsQuery = `
     SELECT
         user.name,
@@ -397,17 +353,7 @@ app.get(
 
 //API9: To return a list of all tweets of the user
 app.get("/user/tweets/", authenticateToken, async (request, response) => {
-  const { username } = request;
-  const getUserDetailsQuery = `
-            SELECT
-                *
-            FROM
-                user
-            WHERE username = "${username}";
-        `;
-  const getUserDetails = await db.get(getUserDetailsQuery);
-  const user_id = getUserDetails.user_id;
-
+  const { user_id } = request;
   const getTweetDetailsQuery = `
     SELECT
         tweet.tweet,
@@ -435,17 +381,8 @@ app.get("/user/tweets/", authenticateToken, async (request, response) => {
 
 //API10: To create a tweet in the tweet table
 app.post("/user/tweets/", authenticateToken, async (request, response) => {
-  const { username } = request;
   const { tweet } = request.body;
-  const getUserDetailsQuery = `
-            SELECT
-                *
-            FROM
-                user
-            WHERE username = "${username}";
-        `;
-  const getUserDetails = await db.get(getUserDetailsQuery);
-  const user_id = getUserDetails.user_id;
+  const { user_id } = request;
   const date_time = new Date();
   const createTweetQuery = `
         INSERT INTO tweet(tweet,user_id,date_time)
@@ -460,18 +397,8 @@ app.delete(
   "/tweets/:tweetId/",
   authenticateToken,
   async (request, response) => {
-    const { username } = request;
     const { tweetId } = request.params;
-    const getUserDetailsQuery = `
-            SELECT
-                *
-            FROM
-                user
-            WHERE username = "${username}";
-        `;
-    const getUserDetails = await db.get(getUserDetailsQuery);
-    const user_id = getUserDetails.user_id;
-
+    const { user_id } = request;
     const isUserTweetQuery = `
         SELECT
             *
@@ -482,7 +409,7 @@ app.delete(
             AND tweet.tweet_id = ${tweetId};
     `;
     const isUserTweet = await db.get(isUserTweetQuery);
-    console.log(isUserTweet);
+
     if (isUserTweet !== undefined) {
       const deleteTweetDetailsQuery = `
             DELETE FROM tweet
